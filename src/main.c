@@ -734,8 +734,9 @@ static void render_system(void)
     surface_t *s = &g_st.surf;
     int cx = content_x(), cw = content_w();
 
-    int cardh = card_h_rows(6);
+    int cardh = card_h_rows(7);
     int y = draw_card(cx, CONTENT_TOP, cw, cardh, "System");
+    y = draw_kv_row(cx, cw, y, "Edition",      "Community");
     y = draw_kv_row(cx, cw, y, "Kernel",       g_st.kernel_version);
     y = draw_kv_row(cx, cw, y, "Processor",    g_st.processor);
     y = draw_kv_row(cx, cw, y, "Cores",        g_st.cores);
