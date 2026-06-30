@@ -1,31 +1,31 @@
 # lumen-settings
 
-The system Settings app for **AspisOS**, a capability-based,
+The system Settings app for **LoricaOS**, a capability-based,
 no-ambient-authority x86-64 operating system built on the from-scratch
-[Aegis](https://github.com/AspisOS/Aegis) kernel.
+[Aegis](https://github.com/LoricaOS/Aegis) kernel.
 
 settings is a two-pane System Settings application — a left sidebar of
 categories and a right content pane rendered as cards. It is the **privileged**
 control surface of the Lumen desktop: it edits the hostname, restarts and powers
 off the machine, toggles autologin and NTP, picks the desktop accent, and
 launches the network and lock helpers. It is a standalone component of the Lumen
-desktop, distributed as a [herald](https://github.com/AspisOS/AspisOS) package,
+desktop, distributed as a [herald](https://github.com/LoricaOS/LoricaOS) package,
 and runs as an **external client** of the
-[lumen](https://github.com/AspisOS/lumen) compositor — it connects to
+[lumen](https://github.com/LoricaOS/lumen) compositor — it connects to
 `/run/lumen.sock` over the Lumen window protocol rather than being an in-process
 compositor built-in.
 
 ## Where settings fits
 
-AspisOS is decomposed into independent repositories. settings is one client of
+LoricaOS is decomposed into independent repositories. settings is one client of
 the graphical stack:
 
 | Repo | Role |
 |------|------|
-| [`AspisOS/Aegis`](https://github.com/AspisOS/Aegis) | The kernel. Backs every live pane: `/proc`, `uname`, `sys_netcfg`, `sys_sethostname`, `sys_reboot`, `sys_set_autologin`, `sys_set_ntp`, and the capability model that gates them. |
-| [`AspisOS/lumen`](https://github.com/AspisOS/lumen) | The compositor / display server. Owns the framebuffer; settings is one of its clients and uses `lumen_invoke` to launch the network manager and lock screen. |
-| [`AspisOS/glyph`](https://github.com/AspisOS/glyph) | The GUI toolkit settings links against: the renderer and TTF fonts (`draw_*`, `font_*`), the theme/accent API (`glyph_theme_*`), and the client side of the Lumen protocol (`lumen_client.h`). |
-| `AspisOS/lumen-settings` | **This repo.** The system Settings app. |
+| [`LoricaOS/Aegis`](https://github.com/LoricaOS/Aegis) | The kernel. Backs every live pane: `/proc`, `uname`, `sys_netcfg`, `sys_sethostname`, `sys_reboot`, `sys_set_autologin`, `sys_set_ntp`, and the capability model that gates them. |
+| [`LoricaOS/lumen`](https://github.com/LoricaOS/lumen) | The compositor / display server. Owns the framebuffer; settings is one of its clients and uses `lumen_invoke` to launch the network manager and lock screen. |
+| [`LoricaOS/glyph`](https://github.com/LoricaOS/glyph) | The GUI toolkit settings links against: the renderer and TTF fonts (`draw_*`, `font_*`), the theme/accent API (`glyph_theme_*`), and the client side of the Lumen protocol (`lumen_client.h`). |
+| `LoricaOS/lumen-settings` | **This repo.** The system Settings app. |
 
 ## What it does
 
@@ -61,7 +61,7 @@ network-manager launch, and the lock screen round out the interactive surface.
 
 ## Capabilities
 
-AspisOS has **no ambient authority**: a process can mutate the system only
+LoricaOS has **no ambient authority**: a process can mutate the system only
 through capabilities declared for it at exec time. settings' policy
 (`pkg/etc/aegis/caps.d/settings`) is:
 
@@ -80,7 +80,7 @@ grants those operations, and nothing else in the bundle can widen it. Holding
 ## Building
 
 settings builds with a musl cross-compiler against a **pinned**
-[glyph](https://github.com/AspisOS/glyph) toolkit artifact (the GUI libraries it
+[glyph](https://github.com/LoricaOS/glyph) toolkit artifact (the GUI libraries it
 links), then packs a signed herald package.
 
 ```sh
@@ -128,6 +128,6 @@ GLYPH_VERSION   the pinned glyph toolkit version it builds against
 ## Dependencies
 
 `depends=lumen` — settings is an external client of the compositor, so
-installing it pulls [lumen](https://github.com/AspisOS/lumen). lumen also ships
+installing it pulls [lumen](https://github.com/LoricaOS/lumen). lumen also ships
 the desktop fonts (Inter, JetBrains Mono), so settings inherits them
 transitively; there is no separate font package.
