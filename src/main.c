@@ -40,6 +40,7 @@
 #include <sys/utsname.h>
 
 #include <glyph.h>
+#include <glyph_term.h>
 #include <lumen_client.h>
 #include "apps.h"
 #include "font.h"
@@ -104,13 +105,14 @@ enum {
     CAT_STORAGE,
     CAT_POWER,
     CAT_PRIVACY,
+    CAT_TERMINAL,
     CAT_ABOUT,
     CAT_COUNT
 };
 
 static const char *const CATEGORY_NAMES[CAT_COUNT] = {
     "System", "Display", "Appearance", "Sound", "Network", "Date & Time",
-    "Input", "Users", "Storage", "Power", "Privacy", "About",
+    "Input", "Users", "Storage", "Power", "Privacy", "Terminal", "About",
 };
 
 /* ── App state ──────────────────────────────────────────────────────────── */
@@ -196,6 +198,15 @@ typedef struct {
     int psn_x, psn_y, psn_w, psn_h;           /* Input: pointer-speed next       */
     int ntpt_x, ntpt_y, ntpt_w, ntpt_h;       /* Date & Time: NTP toggle         */
     int al_x, al_y, al_w, al_h;               /* Users: automatic-login toggle   */
+    int term_scheme_prev_x, term_scheme_prev_y, term_scheme_prev_w, term_scheme_prev_h; /* Terminal: color-scheme prev */
+    int term_scheme_next_x, term_scheme_next_y, term_scheme_next_w, term_scheme_next_h; /* Terminal: color-scheme next */
+    int term_font_prev_x, term_font_prev_y, term_font_prev_w, term_font_prev_h;         /* Terminal: font-size prev     */
+    int term_font_next_x, term_font_next_y, term_font_next_w, term_font_next_h;         /* Terminal: font-size next     */
+    int term_cursor_prev_x, term_cursor_prev_y, term_cursor_prev_w, term_cursor_prev_h; /* Terminal: cursor prev        */
+    int term_cursor_next_x, term_cursor_next_y, term_cursor_next_w, term_cursor_next_h; /* Terminal: cursor next        */
+    int term_sb_prev_x, term_sb_prev_y, term_sb_prev_w, term_sb_prev_h;                 /* Terminal: scrollback prev    */
+    int term_sb_next_x, term_sb_next_y, term_sb_next_w, term_sb_next_h;                 /* Terminal: scrollback next    */
+    int term_blink_x, term_blink_y, term_blink_w, term_blink_h;                         /* Terminal: cursor-blink toggle*/
     int tz_idx;                               /* selected timezone index        */
     int controls_live;
 } settings_state_t;
@@ -458,6 +469,36 @@ static int pspeed_idx(void)
         if (PSPEEDS[i].pct == glyph_theme_pointer_speed()) return i;
     return 1;   /* Normal */
 }
+
+/* Terminal font-size presets (cell px → label). */
+static const struct { int px; const char *name; } FONTS[] = {
+    { 13, "Small" }, { 16, "Medium" }, { 20, "Large" },
+};
+static const int N_FONTS = (int)(sizeof(FONTS) / sizeof(FONTS[0]));
+
+static int term_font_idx(void)
+{
+    for (int i = 0; i < N_FONTS; i++)
+        if (FONTS[i].px == glyph_theme_term_font_px()) return i;
+    return 1;   /* Medium */
+}
+
+/* Terminal scrollback presets (history lines → label). */
+static const struct { int lines; const char *name; } TERM_SB[] = {
+    { 500, "500 lines" }, { 2000, "2000 lines" }, { 10000, "10000 lines" },
+};
+static const int N_TERM_SB = (int)(sizeof(TERM_SB) / sizeof(TERM_SB[0]));
+
+static int term_sb_idx(void)
+{
+    for (int i = 0; i < N_TERM_SB; i++)
+        if (TERM_SB[i].lines == glyph_theme_term_scrollback()) return i;
+    return 1;   /* 2000 lines */
+}
+
+/* Terminal cursor-style labels, indexed 0 block / 1 beam / 2 underline. */
+static const char *const TERM_CURSORS[] = { "Block", "Beam", "Underline" };
+static const int N_TERM_CURSORS = (int)(sizeof(TERM_CURSORS) / sizeof(TERM_CURSORS[0]));
 
 static void read_datetime(void)
 {
@@ -999,6 +1040,57 @@ static void render_input(void)
     g_st.controls_live = 1;
 }
 
+static void render_terminal(void)
+{
+    int cx = content_x(), cw = content_w();
+
+    /* Title + 4 stepper rows + 1 toggle row. */
+    int th = CARD_HEAD + 5 * TOG_ROW_H + (CARD_PAD - SP_3);
+    int fy = draw_card(cx, CONTENT_TOP, cw, th, "Terminal");
+
+    /* Color Scheme stepper. */
+    int scheme = glyph_theme_term_scheme();
+    draw_stepper_row(cx, cw, fy, "Color Scheme", glyph_term_theme_name(scheme),
+                     &g_st.term_scheme_prev_x, &g_st.term_scheme_prev_y,
+                     &g_st.term_scheme_prev_w, &g_st.term_scheme_prev_h,
+                     &g_st.term_scheme_next_x, &g_st.term_scheme_next_y,
+                     &g_st.term_scheme_next_w, &g_st.term_scheme_next_h);
+    fy += TOG_ROW_H;
+
+    /* Font Size stepper. */
+    draw_stepper_row(cx, cw, fy, "Font Size", FONTS[term_font_idx()].name,
+                     &g_st.term_font_prev_x, &g_st.term_font_prev_y,
+                     &g_st.term_font_prev_w, &g_st.term_font_prev_h,
+                     &g_st.term_font_next_x, &g_st.term_font_next_y,
+                     &g_st.term_font_next_w, &g_st.term_font_next_h);
+    fy += TOG_ROW_H;
+
+    /* Cursor stepper. */
+    int cur = glyph_theme_term_cursor();
+    if (cur < 0 || cur >= N_TERM_CURSORS) cur = 0;
+    draw_stepper_row(cx, cw, fy, "Cursor", TERM_CURSORS[cur],
+                     &g_st.term_cursor_prev_x, &g_st.term_cursor_prev_y,
+                     &g_st.term_cursor_prev_w, &g_st.term_cursor_prev_h,
+                     &g_st.term_cursor_next_x, &g_st.term_cursor_next_y,
+                     &g_st.term_cursor_next_w, &g_st.term_cursor_next_h);
+    fy += TOG_ROW_H;
+
+    /* Cursor Blink toggle. */
+    draw_toggle_row(cx, cw, fy, "Cursor Blink", glyph_theme_term_blink(),
+                    &g_st.term_blink_x, &g_st.term_blink_y,
+                    &g_st.term_blink_w, &g_st.term_blink_h);
+    fy += TOG_ROW_H;
+
+    /* Scrollback stepper. */
+    draw_stepper_row(cx, cw, fy, "Scrollback", TERM_SB[term_sb_idx()].name,
+                     &g_st.term_sb_prev_x, &g_st.term_sb_prev_y,
+                     &g_st.term_sb_prev_w, &g_st.term_sb_prev_h,
+                     &g_st.term_sb_next_x, &g_st.term_sb_next_y,
+                     &g_st.term_sb_next_w, &g_st.term_sb_next_h);
+
+    g_st.controls_live = 1;
+}
+
 static void render_users(void)
 {
     int cx = content_x(), cw = content_w();
@@ -1310,6 +1402,7 @@ static void render(void)
     case CAT_STORAGE:    render_storage();    break;
     case CAT_POWER:      render_power();      break;
     case CAT_PRIVACY:    render_privacy();    break;
+    case CAT_TERMINAL:   render_terminal();   break;
     case CAT_ABOUT:      render_about();      break;
     }
 
@@ -1542,6 +1635,66 @@ static void handle_mouse_click(int x, int y)
         } else if (hit(x, y, g_st.psn_x, g_st.psn_y, g_st.psn_w, g_st.psn_h)) {
             int i = (pspeed_idx() + 1) % N_PSPEEDS;
             glyph_theme_set_pointer_speed(PSPEEDS[i].pct);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        }
+        return;
+    }
+
+    if (g_st.selected == CAT_TERMINAL) {
+        if (hit(x, y, g_st.term_scheme_prev_x, g_st.term_scheme_prev_y,
+                g_st.term_scheme_prev_w, g_st.term_scheme_prev_h)) {
+            int n = glyph_term_theme_count();
+            glyph_theme_set_term_scheme((glyph_theme_term_scheme() - 1 + n) % n);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_scheme_next_x, g_st.term_scheme_next_y,
+                       g_st.term_scheme_next_w, g_st.term_scheme_next_h)) {
+            int n = glyph_term_theme_count();
+            glyph_theme_set_term_scheme((glyph_theme_term_scheme() + 1) % n);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_font_prev_x, g_st.term_font_prev_y,
+                       g_st.term_font_prev_w, g_st.term_font_prev_h)) {
+            int i = (term_font_idx() - 1 + N_FONTS) % N_FONTS;
+            glyph_theme_set_term_font_px(FONTS[i].px);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_font_next_x, g_st.term_font_next_y,
+                       g_st.term_font_next_w, g_st.term_font_next_h)) {
+            int i = (term_font_idx() + 1) % N_FONTS;
+            glyph_theme_set_term_font_px(FONTS[i].px);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_cursor_prev_x, g_st.term_cursor_prev_y,
+                       g_st.term_cursor_prev_w, g_st.term_cursor_prev_h)) {
+            int c = glyph_theme_term_cursor();
+            if (c < 0 || c >= N_TERM_CURSORS) c = 0;
+            glyph_theme_set_term_cursor((c - 1 + N_TERM_CURSORS) % N_TERM_CURSORS);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_cursor_next_x, g_st.term_cursor_next_y,
+                       g_st.term_cursor_next_w, g_st.term_cursor_next_h)) {
+            int c = glyph_theme_term_cursor();
+            if (c < 0 || c >= N_TERM_CURSORS) c = 0;
+            glyph_theme_set_term_cursor((c + 1) % N_TERM_CURSORS);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_blink_x, g_st.term_blink_y,
+                       g_st.term_blink_w, g_st.term_blink_h)) {
+            glyph_theme_set_term_blink(!glyph_theme_term_blink());
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_sb_prev_x, g_st.term_sb_prev_y,
+                       g_st.term_sb_prev_w, g_st.term_sb_prev_h)) {
+            int i = (term_sb_idx() - 1 + N_TERM_SB) % N_TERM_SB;
+            glyph_theme_set_term_scrollback(TERM_SB[i].lines);
+            glyph_theme_save();
+            g_st.dirty = 1;
+        } else if (hit(x, y, g_st.term_sb_next_x, g_st.term_sb_next_y,
+                       g_st.term_sb_next_w, g_st.term_sb_next_h)) {
+            int i = (term_sb_idx() + 1) % N_TERM_SB;
+            glyph_theme_set_term_scrollback(TERM_SB[i].lines);
             glyph_theme_save();
             g_st.dirty = 1;
         }
