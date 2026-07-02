@@ -1358,7 +1358,7 @@ static void render_about(void)
     draw_rounded_rect(s, cx, CONTENT_TOP, cw, cardh, CARD_R, THEME_SURFACE_2);
 
     int y = CONTENT_TOP + CARD_PAD;
-    draw_text_sz(FS_DISPLAY, cx + CARD_PAD, y, "Aegis", THEME_TEXT);
+    draw_text_sz(FS_DISPLAY, cx + CARD_PAD, y, "LoricaOS", THEME_TEXT);
     y += FS_DISPLAY + SP_2;
     draw_text_sz(FS_BODY, cx + CARD_PAD, y,
                  "A capability-based POSIX kernel.", THEME_TEXT_DIM);
