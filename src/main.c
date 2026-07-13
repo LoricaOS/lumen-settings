@@ -1725,6 +1725,37 @@ static void handle_mouse_click(int x, int y)
     }
 }
 
+/* ── Top-bar menu ───────────────────────────────────────────────────────── */
+
+enum {
+    CMD_CLOSE     = 1,     /* File → Close  → g_st.done = 1                    */
+    CMD_VIEW_BASE = 100,   /* View → <cat>  → select_category(cmd - base)      */
+};
+
+/* Publish this window's menu bar once after the window is created. The View
+ * column mirrors the sidebar categories (each maps to select_category). */
+static void publish_menu(void)
+{
+    lumen_set_menu_t m;
+    glyph_menu_reset(&m, g_st.lwin->id);
+
+    int file = glyph_menu_add_col(&m, "File");
+    glyph_menu_add_item(&m, file, "Close", CMD_CLOSE);
+
+    int view = glyph_menu_add_col(&m, "View");
+    for (int i = 0; i < CAT_COUNT; i++)
+        glyph_menu_add_item(&m, view, CATEGORY_NAMES[i], CMD_VIEW_BASE + i);
+
+    lumen_window_set_menu(g_st.lwin, &m);
+}
+
+static void menu_invoke(uint32_t cmd)
+{
+    if (cmd == CMD_CLOSE) { g_st.done = 1; return; }
+    if (cmd >= CMD_VIEW_BASE && cmd < CMD_VIEW_BASE + (uint32_t)CAT_COUNT)
+        select_category((int)(cmd - CMD_VIEW_BASE));
+}
+
 /* ── Main ───────────────────────────────────────────────────────────────── */
 
 int
@@ -1783,6 +1814,7 @@ main(int argc, char **argv)
     g_st.selected = CAT_SYSTEM;
     g_st.field_focused = 0;
     g_st.dirty = 1;
+    publish_menu();
     render();
 
     dprintf(2, "[SETTINGS] connected %dx%d\n", g_st.lwin->w, g_st.lwin->h);
@@ -1801,6 +1833,8 @@ main(int argc, char **argv)
                 ev.mouse.evtype == LUMEN_MOUSE_DOWN &&
                 (ev.mouse.buttons & 1))
                 handle_mouse_click(ev.mouse.x, ev.mouse.y);
+            if (ev.type == LUMEN_EV_MENU_INVOKE)
+                menu_invoke(ev.menu.command);
         } else {
             /* Idle tick (~16ms): refresh the live clock once per second. */
             tick++;
